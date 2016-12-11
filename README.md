@@ -1,6 +1,6 @@
-<h1> best-bus-fare (a brain workout)</h1>
-
-<h2>Task</h2>
+<h1>Best Bus Fare</h1>
+<h3>A brain workout</h3>
+<h3>Task</h3>
 <p>
 Write a program that excepts a single parameter,
 an array of integers from 0 to 30. Those numbers are days in a month.
