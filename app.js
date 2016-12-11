@@ -143,7 +143,7 @@ function getBestFare(days) {
   return finalPrice;
 }
 
-const intendedDays = [0,1,4,6,10,15,34,35,36,37,41]; // configurable; intended days of commuting in a particular month
+const intendedDays = [0,1,4,6,8,9,11,12]; // configurable; intended days of commuting in a particular month
 const bestFare = getBestFare(intendedDays);
 
 console.log(bestFare);
