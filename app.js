@@ -19,7 +19,8 @@ const config = {
     passCombo: "Your combo is",
     noWeeks: "No weeks worth mentioning. You'll be better off with getting only daily passes",
     oneWeekOnly: "Your combo is 1 weekly pass, everything else you do daily",
-    monthlyOption: "Oh boy, you take a bus too often. You need to go for a monthly pass"
+    monthlyOption: "Oh boy, you take a bus too often. You need to go for a monthly pass",
+    illegalData: "Data must be an array which may include any positive integers from 0 to 30. Numbers can't be repeated"
   },
   passPrice: {
     daily: 2,
@@ -28,12 +29,25 @@ const config = {
   }
 };
 
+function isDataValid(days) {
+  if (typeof days === "object" && days.length) {
+    const illegalValues = days.filter(day => 
+      typeof day !== 'number' ||
+      typeof day === 'number' && day < 0 ||
+      typeof day === 'number' && day > 30);
+
+    return !illegalValues.length;
+  } else {
+    return false;
+  }
+}
+
 // number of days in a week to make it worth purchasing a weekly pass instead of daily passes
 const minEfficientWeek = getMinEfficientWeek(config.passPrice.daily, config.passPrice.weekly, [], 0);
 
 function getMinEfficientWeek (dayPass, weekPass, daysStore, daysSum) {
   if (daysSum > weekPass) {
-    return;
+    return daysStore.length;
   } else {
     daysStore.push(dayPass);
     getMinEfficientWeek(dayPass, weekPass, daysStore, daysSum + dayPass);
@@ -44,7 +58,7 @@ function getMinEfficientWeek (dayPass, weekPass, daysStore, daysSum) {
 // create all the possible combinations of weeks from intended days of commuting
 function createWeeks(days, possibleWeeks, singlePossibleWeek, dayForWeekStart, currentDay) {
   if (days[dayForWeekStart] !== 0 && !days[dayForWeekStart]) {
-    return;
+    return possibleWeeks;
   } else {
     if (singlePossibleWeek.length === 7) {
       possibleWeeks.push(singlePossibleWeek);
@@ -86,6 +100,17 @@ function rankWeeksCandidates() {
 // make sure sorted weeks candidates for weekly passes have only original days in them.
 // Compare from top to bottom since we're interested in keeping the weeks with most days in them.
 // And we can sacrifice the weeks with fewer days in them to save the weeks with most days when needed.
+
+function getOriginalDaysInWeek(currentWeekDay, originalWeeks, index) {
+  const isDayNotInOriginalWeeks = originalWeeks[index].indexOf(currentWeekDay) === -1;
+
+  if (index === 0) {
+    return isDayNotInOriginalWeeks;
+  }
+
+  return isDayNotInOriginalWeeks && getOriginalDaysInWeek(currentWeekDay, originalWeeks, index - 1);
+}
+
 function getWeeksWinners(days) {
   const rankedCandidates = rankWeeksCandidates();
   const dayPrice = config.passPrice.daily;
@@ -97,20 +122,20 @@ function getWeeksWinners(days) {
   } else if (rankedCandidates && rankedCandidates.length === 1) {
     result = `${config.msg.oneWeekOnly} : ${(days.length - rankedCandidates[0].length) * dayPrice + weekPrice} dollars`;
   } else {
-    rankedCandidates.reduce((a,b) => {
-      if (!a.length) {
-        a.push(b);
+    rankedCandidates.reduce((originalWeeks,currentWeek) => {
+      if (!originalWeeks.length) {
+        originalWeeks.push(currentWeek);
       } else {
-        const originalDaysInWeek = b.filter(bElement => a[a.length - 1].indexOf(bElement) === -1);
+        const originalDaysInWeek = currentWeek.filter(currentWeekDay => getOriginalDaysInWeek(currentWeekDay, originalWeeks, originalWeeks.length - 1));
 
         if (originalDaysInWeek.length >= minEfficientWeek) {
-          a.push(originalDaysInWeek);
+          originalWeeks.push(originalDaysInWeek);
         }
       }
 
-      result = a;
+      result = originalWeeks;
 
-      return a;
+      return originalWeeks;
     }, []);
   }
   return result;
@@ -123,6 +148,12 @@ function getAmountOfDaysInBuyingWeeks(weeks) {
 }
 
 function getBestFare(days) {
+  const isDataLegal = isDataValid(days);
+
+  if(!isDataLegal) {
+    return config.msg.illegalData;
+  }
+
   const weeklyBuys = getWeeksWinners(days);
   const dayPrice = config.passPrice.daily;
   const weekPrice = config.passPrice.weekly;
@@ -143,7 +174,7 @@ function getBestFare(days) {
   return finalPrice;
 }
 
-const intendedDays = [0,1,4,6,8,9,11,12]; // configurable; intended days of commuting in a particular month
+const intendedDays = [1,2,5,7,8,22,24,27,28,29,30]; // configurable; intended days of commuting in a particular month
 const bestFare = getBestFare(intendedDays);
 
 console.log(bestFare);
