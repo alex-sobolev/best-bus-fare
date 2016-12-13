@@ -111,6 +111,16 @@ function getOriginalDaysInWeek(currentWeekDay, originalWeeks, index) {
   return isDayNotInOriginalWeeks && getOriginalDaysInWeek(currentWeekDay, originalWeeks, index - 1);
 }
 
+function getOriginalWeekFullCapacity(firstWeekDay, potentialWeek) {
+  if (potentialWeek.length === 7) {
+    return potentialWeek;
+  } else {
+    potentialWeek.push(firstWeekDay);
+    getOriginalWeekFullCapacity(firstWeekDay + 1, potentialWeek);
+  }
+  return potentialWeek;
+}
+
 function getWeeksWinners(days) {
   const rankedCandidates = rankWeeksCandidates();
   const dayPrice = config.passPrice.daily;
@@ -127,6 +137,16 @@ function getWeeksWinners(days) {
         originalWeeks.push(currentWeek);
       } else {
         const originalDaysInWeek = currentWeek.filter(currentWeekDay => getOriginalDaysInWeek(currentWeekDay, originalWeeks, originalWeeks.length - 1));
+
+        originalDaysInWeek.map(day => {
+          const currentOriginalWeek = originalWeeks[originalWeeks.length - 1];
+          const weekPotential = getOriginalWeekFullCapacity(currentOriginalWeek[0], []);
+
+          if (currentOriginalWeek.indexOf(day) === -1 && weekPotential.indexOf(day) !== -1) {
+            currentOriginalWeek.push(day);
+            originalDaysInWeek.splice(originalDaysInWeek.indexOf(day), 1);
+          }
+        });
 
         if (originalDaysInWeek.length >= minEfficientWeek) {
           originalWeeks.push(originalDaysInWeek);
