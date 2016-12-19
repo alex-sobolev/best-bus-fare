@@ -26,11 +26,33 @@ const config = {
     daily: 2,
     weekly: 7,
     monthly: 25
+  },
+  sortDirection: {
+    highToLow: 'topToBottom',
+    lowToHigh: 'bottomToTop'
   }
 };
 
+function hasRepeatingNumbers(days, index, originalDays, repeatingDays) {
+  const currentDay = days[index];
+
+  if (!currentDay) {
+    return !!repeatingDays.length;
+  } else {
+    if (originalDays.indexOf(currentDay) === -1) {
+      originalDays.push(currentDay);
+    } else {
+      repeatingDays.push(currentDay);
+    }
+    return hasRepeatingNumbers(days, index + 1, originalDays, repeatingDays);
+  }
+}
+
 function isDataValid(days) {
-  if (typeof days === "object" && days.length) {
+  const isNotEmptyArray = typeof days === "object" && days.length;
+  const isRepeatingNumber = hasRepeatingNumbers(days, 0, [], []);
+
+  if (isNotEmptyArray && !isRepeatingNumber) {
     const illegalValues = days.filter(day => 
       typeof day !== 'number' ||
       typeof day === 'number' && day < 0 ||
@@ -50,9 +72,9 @@ function getMinEfficientWeek (dayPass, weekPass, daysStore, daysSum) {
     return daysStore.length;
   } else {
     daysStore.push(dayPass);
-    getMinEfficientWeek(dayPass, weekPass, daysStore, daysSum + dayPass);
+
+    return getMinEfficientWeek(dayPass, weekPass, daysStore, daysSum + dayPass);
   }
-  return daysStore.length;
 };
 
 // create all the possible combinations of weeks from intended days of commuting
@@ -86,14 +108,25 @@ function getWeeksEfficiency(days) {
 }
 
 // get all weeks which could make sense to buy a weekly pass for instead of daily passes
-function weeksCandidates() {
-  return getWeeksEfficiency(intendedDays).filter(week => week.length >= minEfficientWeek);
+function weeksCandidates(days) {
+  return getWeeksEfficiency(days).filter(week => week.length >= minEfficientWeek);
 }
 
 // sort all potential weeks from high to low, for we're interested in weeks with most days of usage in them
-function rankWeeksCandidates() {
-  if (weeksCandidates().length) {
-    return weeksCandidates().sort((a,b) => b.length - a.length);
+function rankWeeksCandidates(days, direction) {
+
+  if (weeksCandidates(days).length) {
+    return weeksCandidates(days).sort((a,b) => {
+      if (a.length === b.length) {
+        if (direction === config.sortDirection.lowToHigh) {
+          return a[0] - b[0];
+        } else {
+          return b[0] - a[0];
+        }
+      } else {
+        return b.length - a.length;
+      }
+    });
   }
 }
 
@@ -116,48 +149,51 @@ function getOriginalWeekFullCapacity(firstWeekDay, potentialWeek) {
     return potentialWeek;
   } else {
     potentialWeek.push(firstWeekDay);
-    getOriginalWeekFullCapacity(firstWeekDay + 1, potentialWeek);
+
+    return getOriginalWeekFullCapacity(firstWeekDay + 1, potentialWeek);
   }
-  return potentialWeek;
 }
 
-function getWeeksWinners(days) {
-  const rankedCandidates = rankWeeksCandidates();
+function maximizeWeekUsage(currentWeek, previousWeek, previousWeekPotential) {
+  const isWeekWorthSacrifice = previousWeek.length >= currentWeek.length;
+
+  currentWeek.map(day => {
+    if (isWeekWorthSacrifice && previousWeek.indexOf(day) === -1 && previousWeekPotential.indexOf(day) > -1) {
+      previousWeek.push(day);
+      currentWeek.splice(currentWeek.indexOf(day), 1);
+    }
+  });
+}
+
+function getWeeksWinners(days, weeksCandidates) {
   const dayPrice = config.passPrice.daily;
   const weekPrice = config.passPrice.weekly;
   let result;
 
-  if (!rankedCandidates) {
+  if (!weeksCandidates) {
     result = `${config.msg.noWeeks} : ${days.length * dayPrice} dollars`;
-  } else if (rankedCandidates && rankedCandidates.length === 1) {
-    result = `${config.msg.oneWeekOnly} : ${(days.length - rankedCandidates[0].length) * dayPrice + weekPrice} dollars`;
+  } else if (weeksCandidates && weeksCandidates.length === 1) {
+    result = `${config.msg.oneWeekOnly} : ${(days.length - weeksCandidates[0].length) * dayPrice + weekPrice} dollars`;
   } else {
-    rankedCandidates.reduce((originalWeeks,currentWeek) => {
+    weeksCandidates.reduce((originalWeeks,currentWeek) => {
       if (!originalWeeks.length) {
         originalWeeks.push(currentWeek);
       } else {
         const originalDaysInWeek = currentWeek.filter(currentWeekDay => getOriginalDaysInWeek(currentWeekDay, originalWeeks, originalWeeks.length - 1));
+        const previousOriginalWeek = originalWeeks[originalWeeks.length - 1];
+        const weekPotential = getOriginalWeekFullCapacity(previousOriginalWeek[0], []);
 
-        originalDaysInWeek.map(day => {
-          const currentOriginalWeek = originalWeeks[originalWeeks.length - 1];
-          const weekPotential = getOriginalWeekFullCapacity(currentOriginalWeek[0], []);
-
-          if (currentOriginalWeek.indexOf(day) === -1 && weekPotential.indexOf(day) !== -1) {
-            currentOriginalWeek.push(day);
-            originalDaysInWeek.splice(originalDaysInWeek.indexOf(day), 1);
-          }
-        });
+        maximizeWeekUsage(originalDaysInWeek, previousOriginalWeek, weekPotential);
 
         if (originalDaysInWeek.length >= minEfficientWeek) {
           originalWeeks.push(originalDaysInWeek);
         }
       }
 
-      result = originalWeeks;
-
-      return originalWeeks;
+      return result = originalWeeks;
     }, []);
   }
+
   return result;
 }
 
@@ -174,27 +210,65 @@ function getBestFare(days) {
     return config.msg.illegalData;
   }
 
-  const weeklyBuys = getWeeksWinners(days);
+  const weeklyBuys1 = getWeeksWinners(days, rankWeeksCandidates(days, config.sortDirection.lowToHigh));
+  const weeklyBuys2 = getWeeksWinners(days, rankWeeksCandidates(days, config.sortDirection.highToLow));
   const dayPrice = config.passPrice.daily;
   const weekPrice = config.passPrice.weekly;
   const monthPrice = config.passPrice.monthly;
   const monthlyOption = config.msg.monthlyOption;
+  let finalWeekBuysPrice;
   let finalPrice;
 
-  if (typeof weeklyBuys === 'string') {
-    finalPrice = weeklyBuys;
+  if (typeof weeklyBuys1 === 'string') {
+    finalPrice = weeklyBuys1;
   } else {
-    const daysInBuyingWeeks = getAmountOfDaysInBuyingWeeks(weeklyBuys);
-    const prelimPrice = (days.length - daysInBuyingWeeks) * dayPrice + weeklyBuys.length * weekPrice;
-    const msg = `${config.msg.passCombo} ${weeklyBuys.length} weekly and ${days.length - daysInBuyingWeeks} daily`;
+    const daysInBuyingWeeks1 = getAmountOfDaysInBuyingWeeks(weeklyBuys1);
+    const daysInBuyingWeeks2 = getAmountOfDaysInBuyingWeeks(weeklyBuys2);
+    const prelimPrice1 = (days.length - daysInBuyingWeeks1) * dayPrice + weeklyBuys1.length * weekPrice;
+    const prelimPrice2 = (days.length - daysInBuyingWeeks2) * dayPrice + weeklyBuys2.length * weekPrice;
 
-    finalPrice = prelimPrice < monthPrice ? `${msg}: ${prelimPrice} dollars` : `${monthlyOption}: ${monthPrice} dollars`;
+    if (prelimPrice1 < prelimPrice2 || prelimPrice1 === prelimPrice2) {
+      finalWeekBuysPrice = prelimPrice1;
+    } else {
+      finalWeekBuysPrice = prelimPrice2;
+    }
+
+    let msg;
+
+    if (finalWeekBuysPrice === prelimPrice1) {
+      msg = `${config.msg.passCombo} ${weeklyBuys1.length} weekly and ${days.length - daysInBuyingWeeks1} daily`;
+    } else {
+      msg = `${config.msg.passCombo} ${weeklyBuys2.length} weekly and ${days.length - daysInBuyingWeeks2} daily`;
+    }
+
+    finalPrice = finalWeekBuysPrice < monthPrice ? `${msg}: ${finalWeekBuysPrice} dollars` : `${monthlyOption}: ${monthPrice} dollars`;
   }
 
   return finalPrice;
 }
 
-const intendedDays = [1,2,5,7,8,22,24,27,28,29,30]; // configurable; intended days of commuting in a particular month
-const bestFare = getBestFare(intendedDays);
+/**
+***** Unit tests ******
+**/
+const intendedDays1 = [0,1,4,6,8,9,11,12]; // configurable; intended days of commuting in a particular month
+const intendedDays2 = [1,2,5,7,8,22,24,27,28,29,30];
+const intendedDays3 = [1,3,5,7,8,9,11,13,14,15,17,19,21,23,25];
+const intendedDays4 = [1,3,5,7,17,18,19,22,23,24,27,28,29,30];
+const intendedDays5 = [19,21,22,23,25,26,27,28,29,30];
 
-console.log(bestFare);
+const bestFare1 = getBestFare(intendedDays1);
+const bestFare2 = getBestFare(intendedDays2);
+const bestFare3 = getBestFare(intendedDays3);
+const bestFare4 = getBestFare(intendedDays4);
+const bestFare5 = getBestFare(intendedDays5);
+
+console.log(`should be equal to "1 weekly and 3 daily":
+${bestFare1}`);
+console.log(`should be equal to "2 weekly and 2 daily":
+${bestFare2}`);
+console.log(`should be equal to "3 weekly and 1 daily":
+${bestFare3}`);
+console.log(`should be equal to "3 weekly and 0 daily":
+${bestFare4}`);
+console.log(`should be equal to "2 weekly and 0 daily":
+${bestFare5}`);
