@@ -4,7 +4,7 @@
 *******Task*******
 Write a program that excepts a single parameter,
 an array of integers from 0 to 30. Those numbers are days in a month.
-Find a best possible monthly fare if:
+Find a best possible monthly fare (a combination of weekly and daily passes or montly pass) if:
 daily pass: 2 dollars;
 weekly pass: 7 dollars (it's really a 7-day pass; it can start on any day,
 and it's valid for 7 consequtive days from the day of purchase);
@@ -203,6 +203,17 @@ function getAmountOfDaysInBuyingWeeks(weeks) {
     .reduce((a,b) => a + b, 0);
 }
 
+function getPrelimPrice(days, daysInWeek, weeklyBuys) {
+  const dayPrice = config.passPrice.daily;
+  const weekPrice = config.passPrice.weekly;
+
+  return (days.length - daysInWeek) * dayPrice + weeklyBuys.length * weekPrice;
+}
+
+function getPrelimPriceMsg(days, weeklyBuys, daysInWeek) {
+  return `${config.msg.passCombo} ${weeklyBuys.length} weekly and ${days.length - daysInWeek} daily`;
+}
+
 function getBestFare(days) {
   const isDataLegal = isDataValid(days);
 
@@ -217,6 +228,7 @@ function getBestFare(days) {
   const monthPrice = config.passPrice.monthly;
   const monthlyOption = config.msg.monthlyOption;
   let finalWeekBuysPrice;
+  let msg;
   let finalPrice;
 
   if (typeof weeklyBuys1 === 'string') {
@@ -224,8 +236,8 @@ function getBestFare(days) {
   } else {
     const daysInBuyingWeeks1 = getAmountOfDaysInBuyingWeeks(weeklyBuys1);
     const daysInBuyingWeeks2 = getAmountOfDaysInBuyingWeeks(weeklyBuys2);
-    const prelimPrice1 = (days.length - daysInBuyingWeeks1) * dayPrice + weeklyBuys1.length * weekPrice;
-    const prelimPrice2 = (days.length - daysInBuyingWeeks2) * dayPrice + weeklyBuys2.length * weekPrice;
+    const prelimPrice1 = getPrelimPrice(days, daysInBuyingWeeks1, weeklyBuys1);
+    const prelimPrice2 = getPrelimPrice(days, daysInBuyingWeeks2, weeklyBuys2);
 
     if (prelimPrice1 < prelimPrice2 || prelimPrice1 === prelimPrice2) {
       finalWeekBuysPrice = prelimPrice1;
@@ -233,12 +245,10 @@ function getBestFare(days) {
       finalWeekBuysPrice = prelimPrice2;
     }
 
-    let msg;
-
     if (finalWeekBuysPrice === prelimPrice1) {
-      msg = `${config.msg.passCombo} ${weeklyBuys1.length} weekly and ${days.length - daysInBuyingWeeks1} daily`;
+      msg = getPrelimPriceMsg(days, weeklyBuys1, daysInBuyingWeeks1);
     } else {
-      msg = `${config.msg.passCombo} ${weeklyBuys2.length} weekly and ${days.length - daysInBuyingWeeks2} daily`;
+      msg = getPrelimPriceMsg(days, weeklyBuys2, daysInBuyingWeeks2);
     }
 
     finalPrice = finalWeekBuysPrice < monthPrice ? `${msg}: ${finalWeekBuysPrice} dollars` : `${monthlyOption}: ${monthPrice} dollars`;
