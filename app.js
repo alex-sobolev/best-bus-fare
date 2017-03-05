@@ -78,21 +78,22 @@ function getMinEfficientWeek (dayPass, weekPass, daysStore, daysSum) {
 };
 
 // create all the possible combinations of weeks from intended days of commuting
-function createWeeks(days, possibleWeeks, singlePossibleWeek, dayForWeekStart, currentDay) {
-  if (days[dayForWeekStart] !== 0 && !days[dayForWeekStart]) {
-    return possibleWeeks;
-  } else {
-    if (singlePossibleWeek.length === 7) {
-      possibleWeeks.push(singlePossibleWeek);
+function createWeeks(days) {
+  let possibleWeeks = [];
 
-      createWeeks(days, possibleWeeks, [], dayForWeekStart + 1, days[dayForWeekStart + 1]);
-    } else {
-      singlePossibleWeek.push(currentDay);
+  days.map(day => possibleWeeks.push(createOnePotentialWeek(day, [])));
 
-      createWeeks(days, possibleWeeks, singlePossibleWeek, dayForWeekStart, currentDay + 1);
-    }
-  }
   return possibleWeeks;
+}
+
+function createOnePotentialWeek(currentDay, week) {
+  if (week.length === 7) {
+    return week;
+  } else {
+    week.push(currentDay);
+
+    return createOnePotentialWeek(currentDay + 1, week);
+  }
 }
 
 // get amount of days of usage of a weekly pass, if we decided to buy it in a particular week
@@ -102,7 +103,7 @@ function getOneWeekEfficiency(days, week) {
 
 // get amount of days of usage of a weekly pass for all possible weeks
 function getWeeksEfficiency(days) {
-  const weeks = createWeeks(days, [], [], 0, days[0]);
+  const weeks = createWeeks(days);
 
   return weeks.map(week => getOneWeekEfficiency(days, week));
 }
@@ -193,7 +194,6 @@ function getWeeksWinners(days, weeksCandidates) {
       return result = originalWeeks;
     }, []);
   }
-
   return result;
 }
 
@@ -265,12 +265,14 @@ const intendedDays2 = [1,2,5,7,8,22,24,27,28,29,30];
 const intendedDays3 = [1,3,5,7,8,9,11,13,14,15,17,19,21,23,25];
 const intendedDays4 = [1,3,5,7,17,18,19,22,23,24,27,28,29,30];
 const intendedDays5 = [19,21,22,23,25,26,27,28,29,30];
+const intendedDays6 = [1,3,4,5,6,7,8,9,10,12,13]; // test fail
 
 const bestFare1 = getBestFare(intendedDays1);
 const bestFare2 = getBestFare(intendedDays2);
 const bestFare3 = getBestFare(intendedDays3);
 const bestFare4 = getBestFare(intendedDays4);
 const bestFare5 = getBestFare(intendedDays5);
+const bestFare6 = getBestFare(intendedDays6);
 
 console.log(`should be equal to "1 weekly and 3 daily":
 ${bestFare1}`);
@@ -282,3 +284,5 @@ console.log(`should be equal to "3 weekly and 0 daily":
 ${bestFare4}`);
 console.log(`should be equal to "2 weekly and 0 daily":
 ${bestFare5}`);
+console.log(`should be equal to "2 weekly and 0 daily":
+${bestFare6}`);
