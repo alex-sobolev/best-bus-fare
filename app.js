@@ -202,9 +202,14 @@ function getAmountOfDaysInBuyingWeeks(weeks) {
 }
 
 function getBestFare(days) {
+  if (!isDataValid(days)) {
+    return config.msg.illegalData;
+  }
+
   const dayPrice = config.passPrice.daily;
   const weekPrice = config.passPrice.weekly;
   const monthPrice = config.passPrice.monthly;
+  const monthlyOptionMsg = config.msg.monthlyOption;
   const rankedWeeks = rankWeeksCandidates(days);
   const allWeeksOptions = getAllUniqueWeeksSets(rankedWeeks, [], 0);
   const fareOptions = [];
@@ -215,13 +220,21 @@ function getBestFare(days) {
 
     fareOptions.push(totalPrice);
   });
-  console.log(fareOptions);
+
   const bestTotalPrice = Math.min(...fareOptions);
   const bestOptionIndex = fareOptions.indexOf(bestTotalPrice);
   const bestWeeksSet = allWeeksOptions[bestOptionIndex];
-  const bestCombo = `${bestWeeksSet.length} weekly and ${days.length - getAmountOfDaysInBuyingWeeks(bestWeeksSet)} daily: ${bestTotalPrice} dollars`;
+  const bestComboMsg = `${bestWeeksSet.length} weekly and ${days.length - getAmountOfDaysInBuyingWeeks(bestWeeksSet)} daily: ${bestTotalPrice} dollars`;
 
-  return bestCombo;
+  if (bestTotalPrice >= monthPrice) {
+    return `${monthlyOptionMsg}: ${monthPrice} dollars`;
+  } else {
+    return {
+      bestTotalPrice,
+      bestWeeksSet,
+      bestComboMsg
+    };
+  }
 }
 
 /**
@@ -242,14 +255,14 @@ const bestFare5 = getBestFare(intendedDays5);
 const bestFare6 = getBestFare(intendedDays6);
 
 console.log(`should be equal to "1 weekly and 3 daily":
-${bestFare1}`);
+${bestFare1.bestComboMsg}`);
 console.log(`should be equal to "2 weekly and 2 daily":
-${bestFare2}`);
+${bestFare2.bestComboMsg}`);
 console.log(`should be equal to "3 weekly and 1 daily":
-${bestFare3}`);
+${bestFare3.bestComboMsg}`);
 console.log(`should be equal to "3 weekly and 0 daily":
-${bestFare4}`);
+${bestFare4.bestComboMsg}`);
 console.log(`should be equal to "2 weekly and 0 daily":
-${bestFare5}`);
+${bestFare5.bestComboMsg}`);
 console.log(`should be equal to "2 weekly and 0 daily":
-${bestFare6}`);
+${bestFare6.bestComboMsg}`);
