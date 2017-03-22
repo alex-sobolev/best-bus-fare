@@ -28,8 +28,8 @@ const config = {
     monthly: 25
   },
   sortDirection: {
-    highToLow: 'topToBottom',
-    lowToHigh: 'bottomToTop'
+    highToLow: 'highToLow',
+    lowToHigh: 'lowToHigh'
   }
 };
 
@@ -109,152 +109,119 @@ function getWeeksEfficiency(days) {
 }
 
 // get all weeks which could make sense to buy a weekly pass for instead of daily passes
-function weeksCandidates(days) {
+function getWeekCandidates(days) {
   return getWeeksEfficiency(days).filter(week => week.length >= minEfficientWeek);
 }
 
 // sort all potential weeks from high to low, for we're interested in weeks with most days of usage in them
-function rankWeeksCandidates(days, direction) {
+function rankWeeksCandidates(days) {
+  const weeksCandidates = getWeekCandidates(days);
 
-  if (weeksCandidates(days).length) {
-    return weeksCandidates(days).sort((a,b) => {
-      if (a.length === b.length) {
-        if (direction === config.sortDirection.lowToHigh) {
-          return a[0] - b[0];
-        } else {
-          return b[0] - a[0];
-        }
-      } else {
-        return b.length - a.length;
-      }
-    });
+  if (weeksCandidates.length) {
+    return sortWeeks(weeksCandidates);
   }
 }
 
-// make sure sorted weeks candidates for weekly passes have only original days in them.
-// Compare from top to bottom since we're interested in keeping the weeks with most days in them.
-// And we can sacrifice the weeks with fewer days in them to save the weeks with most days when needed.
-
-function getOriginalDaysInWeek(currentWeekDay, originalWeeks, index) {
-  const isDayNotInOriginalWeeks = originalWeeks[index].indexOf(currentWeekDay) === -1;
-
-  if (index === 0) {
-    return isDayNotInOriginalWeeks;
-  }
-
-  return isDayNotInOriginalWeeks && getOriginalDaysInWeek(currentWeekDay, originalWeeks, index - 1);
-}
-
-function getOriginalWeekFullCapacity(firstWeekDay, potentialWeek) {
-  if (potentialWeek.length === 7) {
-    return potentialWeek;
-  } else {
-    potentialWeek.push(firstWeekDay);
-
-    return getOriginalWeekFullCapacity(firstWeekDay + 1, potentialWeek);
-  }
-}
-
-function maximizeWeekUsage(currentWeek, previousWeek, previousWeekPotential) {
-  const isWeekWorthSacrifice = previousWeek.length >= currentWeek.length;
-
-  currentWeek.map(day => {
-    if (isWeekWorthSacrifice && previousWeek.indexOf(day) === -1 && previousWeekPotential.indexOf(day) > -1) {
-      previousWeek.push(day);
-      currentWeek.splice(currentWeek.indexOf(day), 1);
+function sortWeeks(weeks) {
+  return weeks.sort((a,b) => {
+    if (a.length === b.length) {
+        return a[0] - b[0];
+    } else {
+      return b.length - a.length;
     }
   });
 }
 
-function getWeeksWinners(days, weeksCandidates) {
-  const dayPrice = config.passPrice.daily;
-  const weekPrice = config.passPrice.weekly;
-  let result;
+// check if a current day in a week is unique
+function isUniqueDay(currentWeekDay, uniqueWeeks) {
+  return uniqueWeeks[0].indexOf(currentWeekDay) === -1;
+}
 
-  if (!weeksCandidates) {
-    result = `${config.msg.noWeeks} : ${days.length * dayPrice} dollars`;
-  } else if (weeksCandidates && weeksCandidates.length === 1) {
-    result = `${config.msg.oneWeekOnly} : ${(days.length - weeksCandidates[0].length) * dayPrice + weekPrice} dollars`;
+function isUniqueDayRecursively(currentWeekDay, uniqueWeeks, index) {
+  const isDayNotInUniqueWeeks = uniqueWeeks[index].indexOf(currentWeekDay) === -1;
+
+  if (index === 0) {
+    return isDayNotInUniqueWeeks;
   } else {
-    weeksCandidates.reduce((originalWeeks,currentWeek) => {
-      if (!originalWeeks.length) {
-        originalWeeks.push(currentWeek);
-      } else {
-        const originalDaysInWeek = currentWeek.filter(currentWeekDay => getOriginalDaysInWeek(currentWeekDay, originalWeeks, originalWeeks.length - 1));
-        const previousOriginalWeek = originalWeeks[originalWeeks.length - 1];
-        const weekPotential = getOriginalWeekFullCapacity(previousOriginalWeek[0], []);
-
-        maximizeWeekUsage(originalDaysInWeek, previousOriginalWeek, weekPotential);
-
-        if (originalDaysInWeek.length >= minEfficientWeek) {
-          originalWeeks.push(originalDaysInWeek);
-        }
-      }
-
-      return result = originalWeeks;
-    }, []);
+    return isDayNotInUniqueWeeks && isUniqueDayRecursively(currentWeekDay, uniqueWeeks, index - 1);
   }
-  return result;
+}
+
+function getUniqueDaysInWeek(week, uniqueWeeks) {
+  const realWeeks = [uniqueWeeks[0]];
+
+  return week.filter(day => isUniqueDay(day, uniqueWeeks));
+}
+
+function getUniqueDaysInWeekRecursively(week, uniqueWeeks) {
+  return week.filter(day => isUniqueDayRecursively(day, uniqueWeeks, uniqueWeeks.length - 1));
+}
+
+function getWorthyUniqueWeeksSet(weeks, uniqueWeeks) {
+  weeks.map(week => {
+    const filteredWeek = getUniqueDaysInWeek(week, uniqueWeeks);
+
+    if (filteredWeek.length >= minEfficientWeek) {
+      uniqueWeeks.push(filteredWeek);
+    }
+  });
+
+  sortWeeks(uniqueWeeks);
+
+  const recursivelyFilteredWeeks = getWorthyUniqueWeeksSetRecursively(uniqueWeeks, [uniqueWeeks[0]]);
+
+  return recursivelyFilteredWeeks;
+}
+
+function getWorthyUniqueWeeksSetRecursively(weeks, uniqueWeeks) {
+  weeks.map(week => {
+    const recursivelyFilteredWeek = getUniqueDaysInWeekRecursively(week, uniqueWeeks);
+
+    if (recursivelyFilteredWeek.length >= minEfficientWeek) {
+      uniqueWeeks.push(recursivelyFilteredWeek);
+    }
+  });
+
+  return uniqueWeeks;
+}
+
+function getAllUniqueWeeksSets(weeks, uniqueWeeks, index) {
+  if (!weeks[index]) {
+    return uniqueWeeks;
+  } else {
+    uniqueWeeks.push(getWorthyUniqueWeeksSet(weeks, [weeks[index]]));
+
+    return getAllUniqueWeeksSets(weeks, uniqueWeeks, index + 1);
+  }
 }
 
 function getAmountOfDaysInBuyingWeeks(weeks) {
   return weeks
     .map(week => week.length)
-    .reduce((a,b) => a + b, 0);
-}
-
-function getPrelimPrice(days, daysInWeek, weeklyBuys) {
-  const dayPrice = config.passPrice.daily;
-  const weekPrice = config.passPrice.weekly;
-
-  return (days.length - daysInWeek) * dayPrice + weeklyBuys.length * weekPrice;
-}
-
-function getPrelimPriceMsg(days, weeklyBuys, daysInWeek) {
-  return `${config.msg.passCombo} ${weeklyBuys.length} weekly and ${days.length - daysInWeek} daily`;
+    .reduce((total, daysInWeek) => total + daysInWeek, 0);
 }
 
 function getBestFare(days) {
-  const isDataLegal = isDataValid(days);
-
-  if(!isDataLegal) {
-    return config.msg.illegalData;
-  }
-
-  const weeklyBuys1 = getWeeksWinners(days, rankWeeksCandidates(days, config.sortDirection.lowToHigh));
-  const weeklyBuys2 = getWeeksWinners(days, rankWeeksCandidates(days, config.sortDirection.highToLow));
   const dayPrice = config.passPrice.daily;
   const weekPrice = config.passPrice.weekly;
   const monthPrice = config.passPrice.monthly;
-  const monthlyOption = config.msg.monthlyOption;
-  let finalWeekBuysPrice;
-  let msg;
-  let finalPrice;
+  const rankedWeeks = rankWeeksCandidates(days);
+  const allWeeksOptions = getAllUniqueWeeksSets(rankedWeeks, [], 0);
+  const fareOptions = [];
 
-  if (typeof weeklyBuys1 === 'string') {
-    finalPrice = weeklyBuys1;
-  } else {
-    const daysInBuyingWeeks1 = getAmountOfDaysInBuyingWeeks(weeklyBuys1);
-    const daysInBuyingWeeks2 = getAmountOfDaysInBuyingWeeks(weeklyBuys2);
-    const prelimPrice1 = getPrelimPrice(days, daysInBuyingWeeks1, weeklyBuys1);
-    const prelimPrice2 = getPrelimPrice(days, daysInBuyingWeeks2, weeklyBuys2);
+  allWeeksOptions.map(weeksSet => {
+    const daysInWeeksSet = getAmountOfDaysInBuyingWeeks(weeksSet);
+    const totalPrice = (weeksSet.length * weekPrice) + ((days.length - daysInWeeksSet) * dayPrice);
 
-    if (prelimPrice1 < prelimPrice2 || prelimPrice1 === prelimPrice2) {
-      finalWeekBuysPrice = prelimPrice1;
-    } else {
-      finalWeekBuysPrice = prelimPrice2;
-    }
+    fareOptions.push(totalPrice);
+  });
+  console.log(fareOptions);
+  const bestTotalPrice = Math.min(...fareOptions);
+  const bestOptionIndex = fareOptions.indexOf(bestTotalPrice);
+  const bestWeeksSet = allWeeksOptions[bestOptionIndex];
+  const bestCombo = `${bestWeeksSet.length} weekly and ${days.length - getAmountOfDaysInBuyingWeeks(bestWeeksSet)} daily: ${bestTotalPrice} dollars`;
 
-    if (finalWeekBuysPrice === prelimPrice1) {
-      msg = getPrelimPriceMsg(days, weeklyBuys1, daysInBuyingWeeks1);
-    } else {
-      msg = getPrelimPriceMsg(days, weeklyBuys2, daysInBuyingWeeks2);
-    }
-
-    finalPrice = finalWeekBuysPrice < monthPrice ? `${msg}: ${finalWeekBuysPrice} dollars` : `${monthlyOption}: ${monthPrice} dollars`;
-  }
-
-  return finalPrice;
+  return bestCombo;
 }
 
 /**
@@ -265,7 +232,7 @@ const intendedDays2 = [1,2,5,7,8,22,24,27,28,29,30];
 const intendedDays3 = [1,3,5,7,8,9,11,13,14,15,17,19,21,23,25];
 const intendedDays4 = [1,3,5,7,17,18,19,22,23,24,27,28,29,30];
 const intendedDays5 = [19,21,22,23,25,26,27,28,29,30];
-const intendedDays6 = [1,3,4,5,6,7,8,9,10,12,13]; // test fail
+const intendedDays6 = [1,3,4,5,6,7,8,9,10,12,13];
 
 const bestFare1 = getBestFare(intendedDays1);
 const bestFare2 = getBestFare(intendedDays2);
