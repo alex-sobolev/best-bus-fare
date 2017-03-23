@@ -16,9 +16,6 @@ write the program without using for loops. use recursive algorithms instead
 
 const config = {
   msg: {
-    passCombo: "Your combo is",
-    noWeeks: "No weeks worth mentioning. You'll be better off with getting only daily passes",
-    oneWeekOnly: "Your combo is 1 weekly pass, everything else you do daily",
     monthlyOption: "Oh boy, you take a bus too often. You need to go for a monthly pass",
     illegalData: "Data must be an array which may include any positive integers from 0 to 30. Numbers can't be repeated"
   },
@@ -26,14 +23,10 @@ const config = {
     daily: 2,
     weekly: 7,
     monthly: 25
-  },
-  sortDirection: {
-    highToLow: 'highToLow',
-    lowToHigh: 'lowToHigh'
   }
 };
 
-function hasRepeatingNumbers(days, index, originalDays, repeatingDays) {
+const hasRepeatingNumbers = (days, index, originalDays, repeatingDays) => {
   const currentDay = days[index];
 
   if (!currentDay) {
@@ -46,9 +39,9 @@ function hasRepeatingNumbers(days, index, originalDays, repeatingDays) {
     }
     return hasRepeatingNumbers(days, index + 1, originalDays, repeatingDays);
   }
-}
+};
 
-function isDataValid(days) {
+const isDataValid = days => {
   const isNotEmptyArray = typeof days === "object" && days.length;
   const isRepeatingNumber = hasRepeatingNumbers(days, 0, [], []);
 
@@ -62,12 +55,9 @@ function isDataValid(days) {
   } else {
     return false;
   }
-}
+};
 
-// number of days in a week to make it worth purchasing a weekly pass instead of daily passes
-const minEfficientWeek = getMinEfficientWeek(config.passPrice.daily, config.passPrice.weekly, [], 0);
-
-function getMinEfficientWeek (dayPass, weekPass, daysStore, daysSum) {
+const getMinEfficientWeek = (dayPass, weekPass, daysStore, daysSum) => {
   if (daysSum > weekPass) {
     return daysStore.length;
   } else {
@@ -77,16 +67,19 @@ function getMinEfficientWeek (dayPass, weekPass, daysStore, daysSum) {
   }
 };
 
+// number of days in a week to make it worth purchasing a weekly pass instead of daily passes
+const minEfficientWeek = getMinEfficientWeek(config.passPrice.daily, config.passPrice.weekly, [], 0);
+
 // create all the possible combinations of weeks from intended days of commuting
-function createWeeks(days) {
+const createWeeks = days => {
   let possibleWeeks = [];
 
   days.map(day => possibleWeeks.push(createOnePotentialWeek(day, [])));
 
   return possibleWeeks;
-}
+};
 
-function createOnePotentialWeek(currentDay, week) {
+const createOnePotentialWeek = (currentDay, week) => {
   if (week.length === 7) {
     return week;
   } else {
@@ -94,27 +87,25 @@ function createOnePotentialWeek(currentDay, week) {
 
     return createOnePotentialWeek(currentDay + 1, week);
   }
-}
+};
 
 // get amount of days of usage of a weekly pass, if we decided to buy it in a particular week
-function getOneWeekEfficiency(days, week) {
-  return days.filter(day => week.indexOf(day) !== -1);
-}
+const getOneWeekEfficiency = (days, week) =>
+  days.filter(day => week.indexOf(day) !== -1);
 
 // get amount of days of usage of a weekly pass for all possible weeks
-function getWeeksEfficiency(days) {
+const getWeeksEfficiency = days => {
   const weeks = createWeeks(days);
 
   return weeks.map(week => getOneWeekEfficiency(days, week));
 }
 
 // get all weeks which could make sense to buy a weekly pass for instead of daily passes
-function getWeekCandidates(days) {
-  return getWeeksEfficiency(days).filter(week => week.length >= minEfficientWeek);
-}
+const getWeekCandidates = days =>
+  getWeeksEfficiency(days).filter(week => week.length >= minEfficientWeek);
 
 // sort all potential weeks from high to low, for we're interested in weeks with most days of usage in them
-function rankWeeksCandidates(days) {
+const rankWeeksCandidates = days => {
   const weeksCandidates = getWeekCandidates(days);
 
   if (weeksCandidates.length) {
@@ -122,22 +113,20 @@ function rankWeeksCandidates(days) {
   }
 }
 
-function sortWeeks(weeks) {
-  return weeks.sort((a,b) => {
+const sortWeeks = weeks =>
+  weeks.sort((a,b) => {
     if (a.length === b.length) {
         return a[0] - b[0];
     } else {
       return b.length - a.length;
     }
   });
-}
 
 // check if a current day in a week is unique
-function isUniqueDay(currentWeekDay, uniqueWeeks) {
-  return uniqueWeeks[0].indexOf(currentWeekDay) === -1;
-}
+const isUniqueDay = (currentWeekDay, uniqueWeeks) =>
+  uniqueWeeks[0].indexOf(currentWeekDay) === -1;
 
-function isUniqueDayRecursively(currentWeekDay, uniqueWeeks, index) {
+const isUniqueDayRecursively = (currentWeekDay, uniqueWeeks, index) => {
   const isDayNotInUniqueWeeks = uniqueWeeks[index].indexOf(currentWeekDay) === -1;
 
   if (index === 0) {
@@ -145,19 +134,15 @@ function isUniqueDayRecursively(currentWeekDay, uniqueWeeks, index) {
   } else {
     return isDayNotInUniqueWeeks && isUniqueDayRecursively(currentWeekDay, uniqueWeeks, index - 1);
   }
-}
+};
 
-function getUniqueDaysInWeek(week, uniqueWeeks) {
-  const realWeeks = [uniqueWeeks[0]];
+const getUniqueDaysInWeek = (week, uniqueWeeks) =>
+  week.filter(day => isUniqueDay(day, uniqueWeeks));
 
-  return week.filter(day => isUniqueDay(day, uniqueWeeks));
-}
+const getUniqueDaysInWeekRecursively = (week, uniqueWeeks) =>
+  week.filter(day => isUniqueDayRecursively(day, uniqueWeeks, uniqueWeeks.length - 1));
 
-function getUniqueDaysInWeekRecursively(week, uniqueWeeks) {
-  return week.filter(day => isUniqueDayRecursively(day, uniqueWeeks, uniqueWeeks.length - 1));
-}
-
-function getWorthyUniqueWeeksSet(weeks, uniqueWeeks) {
+const getWorthyUniqueWeeksSet = (weeks, uniqueWeeks) => {
   weeks.map(week => {
     const filteredWeek = getUniqueDaysInWeek(week, uniqueWeeks);
 
@@ -171,9 +156,9 @@ function getWorthyUniqueWeeksSet(weeks, uniqueWeeks) {
   const recursivelyFilteredWeeks = getWorthyUniqueWeeksSetRecursively(uniqueWeeks, [uniqueWeeks[0]]);
 
   return recursivelyFilteredWeeks;
-}
+};
 
-function getWorthyUniqueWeeksSetRecursively(weeks, uniqueWeeks) {
+const getWorthyUniqueWeeksSetRecursively = (weeks, uniqueWeeks) => {
   weeks.map(week => {
     const recursivelyFilteredWeek = getUniqueDaysInWeekRecursively(week, uniqueWeeks);
 
@@ -183,9 +168,9 @@ function getWorthyUniqueWeeksSetRecursively(weeks, uniqueWeeks) {
   });
 
   return uniqueWeeks;
-}
+};
 
-function getAllUniqueWeeksSets(weeks, uniqueWeeks, index) {
+const getAllUniqueWeeksSets = (weeks, uniqueWeeks, index) => {
   if (!weeks[index]) {
     return uniqueWeeks;
   } else {
@@ -193,23 +178,21 @@ function getAllUniqueWeeksSets(weeks, uniqueWeeks, index) {
 
     return getAllUniqueWeeksSets(weeks, uniqueWeeks, index + 1);
   }
-}
+};
 
-function getAmountOfDaysInBuyingWeeks(weeks) {
-  return weeks
+const getAmountOfDaysInBuyingWeeks = weeks =>
+  weeks
     .map(week => week.length)
     .reduce((total, daysInWeek) => total + daysInWeek, 0);
-}
 
-function getBestFare(days) {
+const getBestFare = (days) => {
+  const { illegalData: illegalDataMsg, monthlyOption: monthlyOptionMsg } = config.msg;
+
   if (!isDataValid(days)) {
-    return config.msg.illegalData;
+    return illegalDataMsg;
   }
 
-  const dayPrice = config.passPrice.daily;
-  const weekPrice = config.passPrice.weekly;
-  const monthPrice = config.passPrice.monthly;
-  const monthlyOptionMsg = config.msg.monthlyOption;
+  const { daily: dayPrice, weekly: weekPrice, monthly: monthPrice } = config.passPrice;
   const rankedWeeks = rankWeeksCandidates(days);
   const allWeeksOptions = getAllUniqueWeeksSets(rankedWeeks, [], 0);
   const fareOptions = [];
@@ -235,7 +218,7 @@ function getBestFare(days) {
       bestComboMsg
     };
   }
-}
+};
 
 /**
 ***** Unit tests ******
