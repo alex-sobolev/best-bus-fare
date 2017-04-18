@@ -14,6 +14,6 @@ and it's valid for 7 consequtive days from the day of purchase);<br>
 monthly pass: 25 dollars.
 </p>
 <p>
-<h3>subtask for me:</h3>
+<h3>Subtask:</h3>
 Write the program without using for loops. Use recursive algorithms instead
 </p>
